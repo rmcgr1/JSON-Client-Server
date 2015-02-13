@@ -1,21 +1,16 @@
 package main
 
 import (
-	"encoding/gob"
 	"fmt"
 	"net"
 	"encoding/json"
-	"os"
+	//"os"
 )
 
 //https://golang.org/src/net/rpc/jsonrpc/client.go
 //http://blog.golang.org/json-and-go
 //https://golang.org/src/encoding/json/example_test.go
 //http://json.org/
-
-type P struct {
-	M, N int64
-}
 
 type DICT3 struct{
 	Key string
@@ -31,17 +26,19 @@ func insert(d3 DICT3){
 
 
 func handleConnection(conn net.Conn) {
-	dec := gob.NewDecoder(conn)
-	p := &P{}
-	dec.Decode(p)
-	fmt.Printf("Received : %+v", p)
+	dec := json.NewDecoder(conn)
+	m := new(DICT3)
+	dec.Decode(&m)
+	fmt.Printf("Received : %+v", m)
+	fmt.Println(m.Key)
 }
 
 func main() {
 	fmt.Println("start")
 	
 	// Test JSON code
-	m := DICT3{"TheKey", "The___Value"}
+	/*
+        m := DICT3{"TheKey", "TheValue"}
 	b, err := json.Marshal(m)
 	if err != nil {
 		fmt.Println("error: ", err)
@@ -49,7 +46,7 @@ func main() {
 	os.Stdout.Write(b)
 
 	// For unmarshall
-	var message []DICT3
+	message := new(DICT3)
 
 	err = json.Unmarshal(b, &message)
 	if err != nil {
@@ -57,6 +54,9 @@ func main() {
 	}
 
 	fmt.Printf("%+v", message)
+	//fmt.Println(m.Key)
+        */
+
 
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
