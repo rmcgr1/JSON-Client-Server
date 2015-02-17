@@ -9,9 +9,9 @@ import (
 )
 
 type DICT3 struct{
-	Key string
-	Relationship string
-	//Value interface{}
+	Key string `json:"method"`
+	Relationship string `json:"params"`
+	Id string `json:"id"`
 }
 
 
@@ -24,7 +24,7 @@ func main() {
 		log.Fatal("Connection error", err)
 	}
 	encoder := json.NewEncoder(conn)
-	m := DICT3{"Whatup", "Dog"}
+	m := DICT3{"lookup", "something", "1"}
 
 	//b, err := json.Marshal(m)
 	//fmt.Println(string(m))

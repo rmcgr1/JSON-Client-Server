@@ -13,9 +13,9 @@ import (
 //http://json.org/
 
 type DICT3 struct{
-	Key string
-	Relationship string
-	//Value interface{}
+	Key string `json:"method"`
+	Relationship string `json:"params"`
+	Id string `json:"id"`
 }
 
 /*
@@ -29,10 +29,60 @@ func handleConnection(conn net.Conn) {
 	dec := json.NewDecoder(conn)
 	m := new(DICT3)
 	dec.Decode(&m)
-	fmt.Printf("%v", m)
 	fmt.Printf("Received : %+v", m)
-	fmt.Println(m.Key)
+
+	// Switch to see what method to call
+	
+	switch m.Key {
+	case "lookup" :
+		lookup(m)
+	case "insert" :
+		insert(m)
+	case "insertOrUpdate":
+		insertOrUpdate(m)
+	case "delete" :
+		deletekey(m)
+	case "listKeys" :
+		listKeys(m)
+	case "listIDs" :
+		listIDs(m)
+	case "shutdown" :
+		shutdown(m)
+	}
+	
 }
+
+func lookup(m *DICT3){
+	fmt.Printf("%v", m)
+}
+
+
+func insert(m *DICT3){
+	fmt.Printf("%v", m)
+}
+
+func insertOrUpdate(m *DICT3){
+	fmt.Printf("%v", m)
+}
+
+func deletekey(m *DICT3){
+	fmt.Printf("%v", m)
+}
+
+func listKeys(m *DICT3){
+	fmt.Printf("%v", m)
+}
+
+func listIDs(m *DICT3){
+	fmt.Printf("%v", m)
+}
+
+func shutdown(m *DICT3){
+	fmt.Printf("%v", m)
+}
+
+
+
 
 func main() {
 	fmt.Println("start")
