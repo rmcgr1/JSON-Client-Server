@@ -29,6 +29,7 @@ func handleConnection(conn net.Conn) {
 	dec := json.NewDecoder(conn)
 	m := new(DICT3)
 	dec.Decode(&m)
+	fmt.Printf("%v", m)
 	fmt.Printf("Received : %+v", m)
 	fmt.Println(m.Key)
 }

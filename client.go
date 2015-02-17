@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
+	//"os"
 )
 
 type DICT3 struct{
@@ -26,13 +26,16 @@ func main() {
 	encoder := json.NewEncoder(conn)
 	m := DICT3{"Whatup", "Dog"}
 
-	b, err := json.Marshal(m)
+	//b, err := json.Marshal(m)
+	//fmt.Println(string(m))
+	
+	
 	if err != nil {
 		fmt.Println("error: ", err)
 	}
-	os.Stdout.Write(b)
+	//os.Stdout.Write(b)
 
-	encoder.Encode(&b)
+	encoder.Encode(m)
 
 	conn.Close()
 	fmt.Println("done")
