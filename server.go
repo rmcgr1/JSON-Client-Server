@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"net"
 	"encoding/json"
-	//"os"
+
+	"github.com/HouzuoGuo/tiedot/db"
+	//"github.com/HouzuoGuo/tiedot/dberr"
+
 )
 
 //https://golang.org/src/net/rpc/jsonrpc/client.go
@@ -12,72 +15,85 @@ import (
 //https://golang.org/src/encoding/json/example_test.go
 //http://json.org/
 
-type DICT3 struct{
-	Key string `json:"method"`
-	Relationship string `json:"params"`
-	Id string `json:"id"`
+type Request struct{
+	Method string `json:"method"` 
+	Params interface{} `json:"params`
+	Id interface{} `json:"id"`
 }
 
 /*
-func insert(d3 DICT3){
-
+type DICT3 struct{
+	Key string
+	Relationship string
+	Value interface{}
 }
 */
 
 
-func handleConnection(conn net.Conn) {
-	dec := json.NewDecoder(conn)
-	m := new(DICT3)
-	dec.Decode(&m)
-	fmt.Printf("Received : %+v", m)
 
+func handleConnection(conn net.Conn, triplets *db.Col) {
+	dec := json.NewDecoder(conn)
+	req := new(Request)
+	dec.Decode(&req)
+	fmt.Println()
+	fmt.Printf("Received : %+v", req)
+	fmt.Println()
+	
 	// Switch to see what method to call
 	
-	switch m.Key {
+	switch m.Method {
 	case "lookup" :
-		lookup(m)
+		lookup(req, triplets)
 	case "insert" :
-		insert(m)
+		insert(req, triplets)
 	case "insertOrUpdate":
-		insertOrUpdate(m)
+		insertOrUpdate(req)
 	case "delete" :
-		deletekey(m)
+		deletekey(req)
 	case "listKeys" :
-		listKeys(m)
+		listKeys(req)
 	case "listIDs" :
-		listIDs(m)
+		listIDs(req)
 	case "shutdown" :
-		shutdown(m)
+		shutdown(req)
 	}
 	
 }
 
-func lookup(m *DICT3){
-	fmt.Printf("%v", m)
+func lookup(m *Request, triplets *db.Col){
+	fmt.Printf("Looking up %v", m)
+
 }
 
 
-func insert(m *DICT3){
+func insert(m *Request, triplets *db.Col){
+	fmt.Printf("Inserting %v", m)
+	
+	/*docID, err := feeds.Insert(map[string]interface{}{
+		"name": "Go 1.2 is released",
+		"url":  "golang.org"})
+	if err != nil {
+		panic(err)
+	}*/
+}
+
+func insertOrUpdate(m *Request){
 	fmt.Printf("%v", m)
 }
 
-func insertOrUpdate(m *DICT3){
+func deletekey(m *Request){
 	fmt.Printf("%v", m)
 }
 
-func deletekey(m *DICT3){
+func listKeys(m *Request){
 	fmt.Printf("%v", m)
 }
 
-func listKeys(m *DICT3){
+func listIDs(m *Request){
 	fmt.Printf("%v", m)
 }
 
-func listIDs(m *DICT3){
-	fmt.Printf("%v", m)
-}
-
-func shutdown(m *DICT3){
+func shutdown(m *Request){
 	fmt.Printf("%v", m)
 }
 
@@ -86,29 +102,34 @@ func shutdown(m *DICT3){
 
 func main() {
 	fmt.Println("start")
+
+	//DB code
 	
-	// Test JSON code
-	/*
-        m := DICT3{"TheKey", "TheValue"}
-	b, err := json.Marshal(m)
-	if err != nil {
-		fmt.Println("error: ", err)
-	}
-	os.Stdout.Write(b)
+	fmt.Println("Intalizing DB")
+	myDBDir := "tiedotDB"
 
-	// For unmarshall
-	message := new(DICT3)
-
-	err = json.Unmarshal(b, &message)
+	// (Create if not exist) open a database
+	myDB, err := db.OpenDB(myDBDir)
 	if err != nil {
-		fmt.Println("error: ", err)
+		panic(err)
 	}
 
-	fmt.Printf("%+v", message)
-	//fmt.Println(m.Key)
+	if err := myDB.Create("Triplets"); err != nil {
+		//panic(err)
+		fmt.Printf(err.Error())
+	}
+	
+	// Scrub (repair and compact) "Feeds"
+	/* if err := myDB.Scrub("Feeds"); err != nil {
+		panic(err)
+	}
         */
 
+	// Start using a collection (the reference is valid until DB schema changes or Scrub is carried out)
+	triplets := myDB.Use("Triplets")
 
+
+	
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		// handle error
@@ -119,6 +140,6 @@ func main() {
 			// handle error
 			continue
 		}
-		go handleConnection(conn) // a goroutine handles conn so that the loop can accept other connections
+		go handleConnection(conn, triplets) // a goroutine handles conn so that the loop can accept other connections
 	}
 }
