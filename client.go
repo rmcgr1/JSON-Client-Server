@@ -33,7 +33,7 @@ func main() {
 		log.Fatal("Connection error", err)
 	}
 	encoder := json.NewEncoder(conn)
-	//d3 := DICT3{"keyA", "relA", map[string]interface{}{"a": 3, "b" : 1}}  
+	// Assignment's DICT3 interface
 	d3 := []interface{}{"keyA", "relA", map[string]interface{}{"a": 3, "b" : 1}}
 	m := Request{"insert", d3, "1"}
 

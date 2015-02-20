@@ -21,15 +21,6 @@ type Request struct{
 	Id interface{} `json:"id"`
 }
 
-/*
-type DICT3 struct{
-	Key string
-	Relationship string
-	Value interface{}
-}
-*/
-
-
 
 func handleConnection(conn net.Conn, triplets *db.Col) {
 	dec := json.NewDecoder(conn)
@@ -41,7 +32,7 @@ func handleConnection(conn net.Conn, triplets *db.Col) {
 	
 	// Switch to see what method to call
 	
-	switch m.Method {
+	switch req.Method {
 	case "lookup" :
 		lookup(req, triplets)
 	case "insert" :
@@ -60,21 +51,52 @@ func handleConnection(conn net.Conn, triplets *db.Col) {
 	
 }
 
-func lookup(m *Request, triplets *db.Col){
-	fmt.Printf("Looking up %v", m)
+func lookup(req *Request, triplets *db.Col){
+	fmt.Printf("Looking up %v", req)
 
 }
 
 
-func insert(m *Request, triplets *db.Col){
-	fmt.Printf("Inserting %v", m)
+func insert(req *Request, triplets *db.Col){
+	fmt.Printf("InSerting %v", req)
+
+	p := req.Params
+	arr := p.([]interface{})
 	
-	/*docID, err := feeds.Insert(map[string]interface{}{
-		"name": "Go 1.2 is released",
-		"url":  "golang.org"})
+	key := arr[0].(string)
+	rel := arr[1].(string)
+	val := arr[2]
+
+	fmt.Println(key, rel, val)
+
+	/*
+	doc := make(map[string]interface{})
+	reldoc := make(map[string]interface{})
+	reldoc[rel] = value
+	doc[key] = reldoc
+	*/
+	// Inserting document into DB as ["key,relationship"] : value
+
+	
+	docID, err := triplets.Insert(map[string]interface{}{
+		"key": key,
+		"rel": rel,
+		"val": val})
 	if err != nil {
 		panic(err)
-	}*/
+	}
+	fmt.Println(docID)
+
+	// Create indexes here??
+	// TODO: Do not create index if it already exists?
+	/*if err := triplets.Index([]string{"key", "rel"}); err != nil {
+		//panic(err)
+		fmt.Printf(err.Error())
+	}
+        */
+	
+        
+	
 }
 
 func insertOrUpdate(m *Request){
@@ -97,7 +119,31 @@ func shutdown(m *Request){
 	fmt.Printf("%v", m)
 }
 
+func testretrive(triplets *db.Col){
+	var query interface{}
+	//json.Unmarshal([]byte(`[{"eq": "keyA", "in": ["key"]}, {"eq": "relA", "in": ["rel"]}]`), &query)
+	json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
+	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
 
+	if err := db.EvalQuery(query, triplets, &queryResult); err != nil {
+		panic(err)
+	}
+
+	// Query result are document IDs
+	for id := range queryResult {
+		// To get query result document, simply read it
+		readBack, err := triplets.Read(id)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Query returned document %v\n", readBack)
+		fmt.Println(readBack["key"])
+		fmt.Println(readBack["rel"])
+		fmt.Println(readBack["val"])
+	}
+	
+
+}
 
 
 func main() {
@@ -118,9 +164,10 @@ func main() {
 		//panic(err)
 		fmt.Printf(err.Error())
 	}
+
 	
 	// Scrub (repair and compact) "Feeds"
-	/* if err := myDB.Scrub("Feeds"); err != nil {
+	/*if err := myDB.Scrub("Triplets"); err != nil {
 		panic(err)
 	}
         */
@@ -128,7 +175,27 @@ func main() {
 	// Start using a collection (the reference is valid until DB schema changes or Scrub is carried out)
 	triplets := myDB.Use("Triplets")
 
+	// Remove index
+	/*
+	if err := triplets.Unindex([]string{"key", "rel"}); err != nil {
+		panic(err)
+	}
+	*/
 
+	// Create indexes here??
+	// TODO: Do not create index if it already exists?
+	if err := triplets.Index([]string{"key"}); err != nil {
+		//panic(err)
+		fmt.Printf(err.Error())
+	}
+        
+
+	
+	for _, path := range triplets.AllIndexes() {
+		fmt.Printf("I have an index on path %v\n", path)
+	}
+
+	testretrive(triplets)
 	
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
