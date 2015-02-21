@@ -69,14 +69,17 @@ func listKeys(triplets *db.Col){
 		panic(err)
 	}
 
+
 	key_set := make(map[string]bool)
 	// Query result are document IDs
+	fmt.Println(queryResult)
 	for id := range queryResult {
 
 		readBack, err := triplets.Read(id)
 		if err != nil {
 			panic(err)
 		}
+		
 		key_set[readBack["key"].(string)] = true
 	}
 
@@ -168,7 +171,6 @@ func delete(req *Request, triplets *db.Col){
 	key := arr[0].(string)
 	rel := arr[1].(string)
 
-	fmt.Println("Deleting ", key, rel)
 
 	queryResult := query_key_rel(key, rel, triplets)
 
@@ -204,10 +206,10 @@ func shutdown(myDB *db.DB){
 	os.Exit(0)
 }
 
-/*
+
 func testretrive(triplets *db.Col){
 	var query interface{}
-	json.Unmarshal([]byte(`[{"eq": "keyA", "in": ["key"]}, {"eq": "relA", "in": ["rel"]}]`), &query)
+	json.Unmarshal([]byte(`[{"eq": "keyA", "in": ["key"]}]`), &query)
 	//json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
 	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
 
@@ -230,7 +232,7 @@ func testretrive(triplets *db.Col){
 	
 
 }
-*/
+
 
 func main() {
 	fmt.Println("start")

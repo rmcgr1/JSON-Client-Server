@@ -82,19 +82,19 @@ func main() {
 	insert("keyC", "relB", map[string]interface{}{"a":3, "b": 1111})
 	
 	//Delete
-//	delete("keyA", "relA")
-//	delete("keyB", "relA")
-//	delete("keyC", "relA")
-//	delete("keyC", "relB")	
+	//delete("keyA", "relA")
+	//delete("keyB", "relA")
+	//delete("keyC", "relA")
+	//delete("keyC", "relB")	
 
 	
 	
 	//List Keys
 	listKeys()
 
-	//listIDs()
+	listIDs()
 
-	shutdown()
+	//shutdown()
 
 
 	//conn.Close()
