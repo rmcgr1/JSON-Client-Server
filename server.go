@@ -40,9 +40,9 @@ func handleConnection(conn net.Conn, triplets *db.Col) {
 	case "insertOrUpdate":
 		insertOrUpdate(req)
 	case "delete" :
-		deletekey(req)
+		delete(req, triplets)
 	case "listKeys" :
-		listKeys(req)
+		listKeys(triplets)
 	case "listIDs" :
 		listIDs(req)
 	case "shutdown" :
@@ -56,9 +56,39 @@ func lookup(req *Request, triplets *db.Col){
 
 }
 
+func listKeys(triplets *db.Col){
+	//TODO make sure UNIQUE keys
+	fmt.Println("Listing all unique keys")
+
+	var query interface{}
+	json.Unmarshal([]byte(`[{"has": ["key"]}]`), &query)
+	//json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
+	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
+
+	if err := db.EvalQuery(query, triplets, &queryResult); err != nil {
+		panic(err)
+	}
+
+	key_set := make(map[string]bool)
+	// Query result are document IDs
+	for id := range queryResult {
+
+		readBack, err := triplets.Read(id)
+		if err != nil {
+			panic(err)
+		}
+		key_set[readBack["key"].(string)] = true
+	}
+
+	for i := range key_set{
+		fmt.Println(i)
+	}
+	
+	
+}
 
 func insert(req *Request, triplets *db.Col){
-	fmt.Printf("InSerting %v", req)
+	fmt.Printf("Inserting %v", req)
 
 	p := req.Params
 	arr := p.([]interface{})
@@ -77,6 +107,7 @@ func insert(req *Request, triplets *db.Col){
 	*/
 	// Inserting document into DB as ["key,relationship"] : value
 
+	//TODO test if already exists, set return value
 	
 	docID, err := triplets.Insert(map[string]interface{}{
 		"key": key,
@@ -103,13 +134,34 @@ func insertOrUpdate(m *Request){
 	fmt.Printf("%v", m)
 }
 
-func deletekey(m *Request){
-	fmt.Printf("%v", m)
+func delete(req *Request, triplets *db.Col){
+	
+	p := req.Params
+	arr := p.([]interface{})
+	
+	key := arr[0].(string)
+	rel := arr[1].(string)
+
+	fmt.Println("Deleting ", key, rel)
+
+	var query interface{}
+	json.Unmarshal([]byte(`[{"eq": "` + key + `", "in": ["key"]}, {"eq": "` + rel + `", "in": ["rel"]}]`), &query)
+	//json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
+	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
+
+	if err := db.EvalQuery(query, triplets, &queryResult); err != nil {
+		panic(err)
+	}
+
+	// Query result are document IDs
+	for id := range queryResult {
+		fmt.Println("Deleting ", id)
+		if err := triplets.Delete(id); err != nil {
+			panic(err)
+		}
+	}
 }
 
-func listKeys(m *Request){
-	fmt.Printf("%v", m)
-}
 
 func listIDs(m *Request){
 	fmt.Printf("%v", m)
@@ -119,10 +171,11 @@ func shutdown(m *Request){
 	fmt.Printf("%v", m)
 }
 
+/*
 func testretrive(triplets *db.Col){
 	var query interface{}
-	//json.Unmarshal([]byte(`[{"eq": "keyA", "in": ["key"]}, {"eq": "relA", "in": ["rel"]}]`), &query)
-	json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
+	json.Unmarshal([]byte(`[{"eq": "keyA", "in": ["key"]}, {"eq": "relA", "in": ["rel"]}]`), &query)
+	//json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
 	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
 
 	if err := db.EvalQuery(query, triplets, &queryResult); err != nil {
@@ -144,7 +197,7 @@ func testretrive(triplets *db.Col){
 	
 
 }
-
+*/
 
 func main() {
 	fmt.Println("start")
@@ -160,9 +213,11 @@ func main() {
 		panic(err)
 	}
 
+	defer myDB.Close()
+	
 	if err := myDB.Create("Triplets"); err != nil {
 		//panic(err)
-		fmt.Printf(err.Error())
+		fmt.Println(err.Error())
 	}
 
 	
@@ -186,16 +241,20 @@ func main() {
 	// TODO: Do not create index if it already exists?
 	if err := triplets.Index([]string{"key"}); err != nil {
 		//panic(err)
-		fmt.Printf(err.Error())
+		fmt.Println(err.Error())
 	}
         
-
-	
-	for _, path := range triplets.AllIndexes() {
-		fmt.Printf("I have an index on path %v\n", path)
+	if err := triplets.Index([]string{"rel"}); err != nil {
+		//panic(err)
+		fmt.Println(err.Error())
 	}
 
-	testretrive(triplets)
+	/*for _, path := range triplets.AllIndexes() {
+		fmt.Println("I have an index on path %v\n", path)
+	}
+        */
+	
+	//testretrive(triplets)
 	
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
