@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"encoding/json"
-
+	"os"
 	"github.com/HouzuoGuo/tiedot/db"
 	//"github.com/HouzuoGuo/tiedot/dberr"
 
@@ -22,7 +22,7 @@ type Request struct{
 }
 
 
-func handleConnection(conn net.Conn, triplets *db.Col) {
+func handleConnection(conn net.Conn, triplets *db.Col, myDB *db.DB) {
 	dec := json.NewDecoder(conn)
 	req := new(Request)
 	dec.Decode(&req)
@@ -44,9 +44,9 @@ func handleConnection(conn net.Conn, triplets *db.Col) {
 	case "listKeys" :
 		listKeys(triplets)
 	case "listIDs" :
-		listIDs(req)
+		listIDs(triplets)
 	case "shutdown" :
-		shutdown(req)
+		shutdown(myDB)
 	}
 	
 }
@@ -61,7 +61,7 @@ func listKeys(triplets *db.Col){
 	fmt.Println("Listing all unique keys")
 
 	var query interface{}
-	json.Unmarshal([]byte(`[{"has": ["key"]}]`), &query)
+	json.Unmarshal([]byte(`{"n": [{"has": ["key"]}, {"has": ["rel"]}]}`), &query)
 	//json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
 	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
 
@@ -87,6 +87,41 @@ func listKeys(triplets *db.Col){
 	
 }
 
+func listIDs(triplets *db.Col){
+	//TODO make sure UNIQUE keys
+	fmt.Println("Listing all unique IDs")
+
+	var query interface{}
+	json.Unmarshal([]byte(`{"n": [{"has": ["key"]}, {"has": ["rel"]}]}`), &query)
+	//json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
+	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
+
+	if err := db.EvalQuery(query, triplets, &queryResult); err != nil {
+		panic(err)
+	}
+
+	fmt.Println(queryResult)
+
+	id_set := make(map[[2]string]bool)
+	// Query result are document IDs
+	for id := range queryResult {
+
+		readBack, err := triplets.Read(id)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(readBack)
+		id_set[[2]string{readBack["key"].(string), readBack["rel"].(string)}] = true 
+	}
+
+	for i := range id_set{
+		fmt.Println(i)
+	}
+	
+	
+}
+
+
 func insert(req *Request, triplets *db.Col){
 	fmt.Printf("Inserting %v", req)
 
@@ -99,35 +134,26 @@ func insert(req *Request, triplets *db.Col){
 
 	fmt.Println(key, rel, val)
 
-	/*
-	doc := make(map[string]interface{})
-	reldoc := make(map[string]interface{})
-	reldoc[rel] = value
-	doc[key] = reldoc
-	*/
-	// Inserting document into DB as ["key,relationship"] : value
-
 	//TODO test if already exists, set return value
-	
-	docID, err := triplets.Insert(map[string]interface{}{
-		"key": key,
-		"rel": rel,
-		"val": val})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(docID)
+	// Test if already exists
 
-	// Create indexes here??
-	// TODO: Do not create index if it already exists?
-	/*if err := triplets.Index([]string{"key", "rel"}); err != nil {
-		//panic(err)
-		fmt.Printf(err.Error())
+	queryResult := query_key_rel(key, rel, triplets)
+
+	if len(queryResult) != 0 {
+		fmt.Println("Insert: key " + key + " rel " + rel + " already exists, returning error")
+		//TODO put false return here for insert
+		return 
+	} else {
+	
+		docID, err := triplets.Insert(map[string]interface{}{
+			"key": key,
+			"rel": rel,
+			"val": val})
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(docID)
 	}
-        */
-	
-        
-	
 }
 
 func insertOrUpdate(m *Request){
@@ -144,14 +170,7 @@ func delete(req *Request, triplets *db.Col){
 
 	fmt.Println("Deleting ", key, rel)
 
-	var query interface{}
-	json.Unmarshal([]byte(`[{"eq": "` + key + `", "in": ["key"]}, {"eq": "` + rel + `", "in": ["rel"]}]`), &query)
-	//json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
-	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
-
-	if err := db.EvalQuery(query, triplets, &queryResult); err != nil {
-		panic(err)
-	}
+	queryResult := query_key_rel(key, rel, triplets)
 
 	// Query result are document IDs
 	for id := range queryResult {
@@ -162,13 +181,27 @@ func delete(req *Request, triplets *db.Col){
 	}
 }
 
+func query_key_rel(key string, rel string, triplets *db.Col) (queryResult map[int]struct{}){
 
-func listIDs(m *Request){
-	fmt.Printf("%v", m)
+	var query interface{}
+
+	//{"n" means "intersection" of the two queries, logical AND
+
+	json.Unmarshal([]byte(`{"n": [{"eq": "` + key + `", "in": ["key"]}, {"eq": "` + rel + `", "in": ["rel"]}]}`), &query)
+
+	q_result := make(map[int]struct{}) // query result (document IDs) goes into map keys
+
+	if err := db.EvalQuery(query, triplets, &q_result); err != nil {
+		panic(err)
+	}
+
+	return q_result
 }
 
-func shutdown(m *Request){
-	fmt.Printf("%v", m)
+func shutdown(myDB *db.DB){
+	fmt.Println("Shutting Down DB")
+	myDB.Close()
+	os.Exit(0)
 }
 
 /*
@@ -266,6 +299,6 @@ func main() {
 			// handle error
 			continue
 		}
-		go handleConnection(conn, triplets) // a goroutine handles conn so that the loop can accept other connections
+		go handleConnection(conn, triplets, myDB) // a goroutine handles conn so that the loop can accept other connections
 	}
 }
