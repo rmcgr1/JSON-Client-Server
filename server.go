@@ -21,11 +21,17 @@ type Request struct{
 	Id interface{} `json:"id"`
 }
 
+type Response struct{
+	Result interface{} `json:"result"`
+	Id interface{} `json:"id"`
+	Error interface{} `json:"error"`      // Error must be null if there was no error
+}
 
 func handleConnection(conn net.Conn, triplets *db.Col, myDB *db.DB) {
-	dec := json.NewDecoder(conn)
+	decoder := json.NewDecoder(conn)
+	encoder := json.NewEncoder(conn)
 	req := new(Request)
-	dec.Decode(&req)
+	decoder.Decode(&req)
 	fmt.Println()
 	fmt.Printf("Received : %+v", req)
 	fmt.Println()
@@ -34,29 +40,59 @@ func handleConnection(conn net.Conn, triplets *db.Col, myDB *db.DB) {
 	
 	switch req.Method {
 	case "lookup" :
-		lookup(req, triplets)
+		lookup(req, encoder, triplets)
 	case "insert" :
-		insert(req, triplets)
+		insert(req, encoder, triplets, false)
 	case "insertOrUpdate":
-		insertOrUpdate(req)
+		insert(req, encoder, triplets, true)
 	case "delete" :
-		delete(req, triplets)
+		delete(req, encoder, triplets)
 	case "listKeys" :
-		listKeys(triplets)
+		listKeys(encoder, triplets)
 	case "listIDs" :
-		listIDs(triplets)
+		listIDs(encoder, triplets)
 	case "shutdown" :
 		shutdown(myDB)
 	}
 	
 }
 
-func lookup(req *Request, triplets *db.Col){
+func lookup(req *Request, encoder *json.Encoder, triplets *db.Col){
 	fmt.Printf("Looking up %v", req)
 
+	p := req.Params
+	arr := p.([]interface{})
+	
+	key := arr[0].(string)
+	rel := arr[1].(string)
+
+	// See if there this key/val is already in DB
+	queryResult := query_key_rel(key, rel, triplets)
+	if len(queryResult) != 0 {
+		for id := range queryResult {
+			
+			readBack, err := triplets.Read(id)
+			if err != nil {
+				panic(err)
+			}
+			
+			val := readBack["val"].(map[string]interface {})
+			fmt.Println(val)
+			//fmt.Println(key + " " + rel + " has value " + val)
+			//TODO get ID value
+			nillslice := []int{}
+			m := Response{val, "ChangeMeID", nillslice}
+			encoder.Encode(m)
+		}
+		
+	} else {
+		// Key/rel not in DB
+		fmt.Println("key/rel not in DB return null in result")
+	}
+	
 }
 
-func listKeys(triplets *db.Col){
+func listKeys(encoder *json.Encoder, triplets *db.Col){
 	//TODO make sure UNIQUE keys
 	fmt.Println("Listing all unique keys")
 
@@ -90,7 +126,7 @@ func listKeys(triplets *db.Col){
 	
 }
 
-func listIDs(triplets *db.Col){
+func listIDs(encoder *json.Encoder, triplets *db.Col){
 	//TODO make sure UNIQUE keys
 	fmt.Println("Listing all unique IDs")
 
@@ -125,7 +161,7 @@ func listIDs(triplets *db.Col){
 }
 
 
-func insert(req *Request, triplets *db.Col){
+func insert(req *Request, encoder *json.Encoder, triplets *db.Col, update bool){
 	fmt.Printf("Inserting %v", req)
 
 	p := req.Params
@@ -137,15 +173,37 @@ func insert(req *Request, triplets *db.Col){
 
 	fmt.Println(key, rel, val)
 
-	//TODO test if already exists, set return value
-	// Test if already exists
-
+	// See if there this key/val is already in DB
 	queryResult := query_key_rel(key, rel, triplets)
-
 	if len(queryResult) != 0 {
-		fmt.Println("Insert: key " + key + " rel " + rel + " already exists, returning error")
-		//TODO put false return here for insert
-		return 
+		fmt.Println("Insert: key " + key + " rel " + rel + " already exists")
+
+		if update{
+			// insertOrUpdate() now replaces the key/rel with an updated value
+			// delete old value, insert new
+			for id := range queryResult {
+				fmt.Println("Deleting ", id)
+				if err := triplets.Delete(id); err != nil {
+					panic(err)
+				}
+			}
+
+			//insert new value
+			docID, err := triplets.Insert(map[string]interface{}{
+				"key": key,
+				"rel": rel,
+				"val": val})
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println("Inserting ", docID)
+
+
+		} else{
+			// insert() fails if key/rel already exists
+			fmt.Println("Insert did not happen, need to return false")
+			return
+		}
 	} else {
 	
 		docID, err := triplets.Insert(map[string]interface{}{
@@ -155,15 +213,12 @@ func insert(req *Request, triplets *db.Col){
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(docID)
+		fmt.Println("Inserting ", docID)
 	}
 }
 
-func insertOrUpdate(m *Request){
-	fmt.Printf("%v", m)
-}
 
-func delete(req *Request, triplets *db.Col){
+func delete(req *Request, encoder *json.Encoder, triplets *db.Col){
 	
 	p := req.Params
 	arr := p.([]interface{})
@@ -256,21 +311,8 @@ func main() {
 	}
 
 	
-	// Scrub (repair and compact) "Feeds"
-	/*if err := myDB.Scrub("Triplets"); err != nil {
-		panic(err)
-	}
-        */
-
-	// Start using a collection (the reference is valid until DB schema changes or Scrub is carried out)
 	triplets := myDB.Use("Triplets")
 
-	// Remove index
-	/*
-	if err := triplets.Unindex([]string{"key", "rel"}); err != nil {
-		panic(err)
-	}
-	*/
 
 	// Create indexes here??
 	// TODO: Do not create index if it already exists?
@@ -284,12 +326,6 @@ func main() {
 		fmt.Println(err.Error())
 	}
 
-	/*for _, path := range triplets.AllIndexes() {
-		fmt.Println("I have an index on path %v\n", path)
-	}
-        */
-	
-	//testretrive(triplets)
 	
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
