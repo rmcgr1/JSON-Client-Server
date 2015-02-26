@@ -46,7 +46,7 @@ func handleConnection(conn net.Conn, triplets *db.Col, myDB *db.DB) {
 	case "insertOrUpdate":
 		insert(req, encoder, triplets, true)
 	case "delete" :
-		delete(req, encoder, triplets)
+		delete(req, triplets)
 	case "listKeys" :
 		listKeys(encoder, triplets)
 	case "listIDs" :
@@ -107,7 +107,6 @@ func listKeys(encoder *json.Encoder, triplets *db.Col){
 	if err := db.EvalQuery(query, triplets, &queryResult); err != nil {
 		panic(err)
 	}
-
 
 	key_set := make(map[string]bool)
 	// Query result are document IDs
@@ -211,10 +210,7 @@ func insert(req *Request, encoder *json.Encoder, triplets *db.Col, update bool){
 			}
 			fmt.Println("Inserting ", docID)
 
-			nillslice := []int{}
-			m := Response{true, "ChangeMeID", nillslice}
-			encoder.Encode(m)
-
+			//insertOrUpdate doesn't return anything
 
 
 		} else{
@@ -238,15 +234,19 @@ func insert(req *Request, encoder *json.Encoder, triplets *db.Col, update bool){
 			panic(err)
 		}
 		fmt.Println("Inserting ", docID)
-		nillslice := []int{}
-		m := Response{true, "ChangeMeID", nillslice}
-		encoder.Encode(m)
+		
+		//insertOrUpdate doesn't have a return value
+		if update == false {
+			nillslice := []int{}
+			m := Response{true, "ChangeMeID", nillslice}
+			encoder.Encode(m)
+		}
 
 	}
 }
 
 
-func delete(req *Request, encoder *json.Encoder, triplets *db.Col){
+func delete(req *Request, triplets *db.Col){
 	
 	p := req.Params
 	arr := p.([]interface{})
