@@ -88,6 +88,9 @@ func lookup(req *Request, encoder *json.Encoder, triplets *db.Col){
 	} else {
 		// Key/rel not in DB
 		fmt.Println("key/rel not in DB return null in result")
+		nillslice := []int{}
+		m := Response{nillslice, "ChangeMeID", nillslice}
+		encoder.Encode(m)
 	}
 	
 }
@@ -119,11 +122,15 @@ func listKeys(encoder *json.Encoder, triplets *db.Col){
 		key_set[readBack["key"].(string)] = true
 	}
 
+	val := make([]string, 0)
 	for i := range key_set{
 		fmt.Println(i)
+		val = append(val,i)
 	}
 	
-	
+	nillslice := []int{}
+	m := Response{val, "ChangeMeID", nillslice}
+	encoder.Encode(m)
 }
 
 func listIDs(encoder *json.Encoder, triplets *db.Col){
@@ -153,10 +160,15 @@ func listIDs(encoder *json.Encoder, triplets *db.Col){
 		id_set[[2]string{readBack["key"].(string), readBack["rel"].(string)}] = true 
 	}
 
+	val := make([]interface{}, 0)
 	for i := range id_set{
 		fmt.Println(i)
+		val = append(val, i)
 	}
-	
+		
+	nillslice := []int{}
+	m := Response{val, "ChangeMeID", nillslice}
+	encoder.Encode(m)
 	
 }
 
@@ -176,6 +188,7 @@ func insert(req *Request, encoder *json.Encoder, triplets *db.Col, update bool){
 	// See if there this key/val is already in DB
 	queryResult := query_key_rel(key, rel, triplets)
 	if len(queryResult) != 0 {
+		//Key Already Exists
 		fmt.Println("Insert: key " + key + " rel " + rel + " already exists")
 
 		if update{
@@ -198,11 +211,22 @@ func insert(req *Request, encoder *json.Encoder, triplets *db.Col, update bool){
 			}
 			fmt.Println("Inserting ", docID)
 
+			nillslice := []int{}
+			m := Response{true, "ChangeMeID", nillslice}
+			encoder.Encode(m)
+
+
 
 		} else{
 			// insert() fails if key/rel already exists
 			fmt.Println("Insert did not happen, need to return false")
-			return
+
+			// TODO difference in spec, json RPC says to set "result" to null if error, project spec says to return "false"
+			nillslice := []int{}
+			m := Response{false, "ChangeMeID", nillslice}
+			encoder.Encode(m)
+
+			
 		}
 	} else {
 	
@@ -214,6 +238,10 @@ func insert(req *Request, encoder *json.Encoder, triplets *db.Col, update bool){
 			panic(err)
 		}
 		fmt.Println("Inserting ", docID)
+		nillslice := []int{}
+		m := Response{true, "ChangeMeID", nillslice}
+		encoder.Encode(m)
+
 	}
 }
 

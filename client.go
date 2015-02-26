@@ -60,23 +60,32 @@ func lookup(key string, rel string){
 	
 	res := new(Response)
 	decoder.Decode(&res)
-	fmt.Printf("Recieved: %+v", res)
+	fmt.Println("Recieved: %+v", res)
 
 }
 
 func listKeys(){
 	m := Request{"listKeys", []interface{}{}, "1"}
 
-	encoder,_ := getEncoder()
+	encoder,decoder := getEncoder()
 	encoder.Encode(m)
+	
+	res := new(Response)
+	decoder.Decode(&res)
+	fmt.Println("Recieved: %+v", res)
 }
 
 
 func listIDs(){
 	m := Request{"listIDs", []interface{}{}, "1"}
 
-	encoder,_ := getEncoder()
+	encoder,decoder := getEncoder()
 	encoder.Encode(m)
+
+	res := new(Response)
+	decoder.Decode(&res)
+	fmt.Println("Recieved: %+v", res)
+	
 }
 
 func shutdown(){
@@ -125,7 +134,7 @@ func main() {
 	//List Keys
 	//listKeys()
 
-	//listIDs()
+	listIDs()
 
 	//shutdown()
 
