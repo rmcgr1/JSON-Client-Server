@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"net"
 	"encoding/json"
+	"io/ioutil"
 	"os"
 	"github.com/HouzuoGuo/tiedot/db"
-	//"github.com/HouzuoGuo/tiedot/dberr"
-
 )
 
-//https://golang.org/src/net/rpc/jsonrpc/client.go
-//http://blog.golang.org/json-and-go
-//https://golang.org/src/encoding/json/example_test.go
-//http://json.org/
+/*
+TODO
+ID
+finish parsing values from config
+*/
 
 type Request struct{
 	Method string `json:"method"` 
@@ -25,6 +25,22 @@ type Response struct{
 	Result interface{} `json:"result"`
 	Id interface{} `json:"id"`
 	Error interface{} `json:"error"`      // Error must be null if there was no error
+}
+
+type Easy struct{
+	Easy string `json:"easy"`
+}
+
+type Configuration struct{
+	ServerID string `json:"serverID"`
+	Protocol string `json:"protocol"`
+	IpAddress string `json:"ipAddress"`
+	Port int `json:"port"`
+	PersistentStorageContainer struct {
+		File string `json:"file"`
+	} `json:"persistentStorageContainer"`
+	Methods []string `json:"methods"`
+
 }
 
 func handleConnection(conn net.Conn, triplets *db.Col, myDB *db.DB) {
@@ -290,36 +306,36 @@ func shutdown(myDB *db.DB){
 }
 
 
-func testretrive(triplets *db.Col){
-	var query interface{}
-	json.Unmarshal([]byte(`[{"eq": "keyA", "in": ["key"]}]`), &query)
-	//json.Unmarshal([]byte(`{"eq": "keyA", "in": ["key"]}`), &query)
-	queryResult := make(map[int]struct{}) // query result (document IDs) goes into map keys
 
-	if err := db.EvalQuery(query, triplets, &queryResult); err != nil {
+func readConfig()(config *Configuration){
+
+	dat, err := ioutil.ReadFile(os.Args[1])
+	if err != nil {
+		fmt.Println("Error reading file")
+		panic(err)
+	}
+	fmt.Println(string(dat))
+
+	b_arr := []byte(string(dat))
+
+	config = new(Configuration)
+	if err := json.Unmarshal(b_arr, &config); err != nil {
 		panic(err)
 	}
 
-	// Query result are document IDs
-	for id := range queryResult {
-		// To get query result document, simply read it
-		readBack, err := triplets.Read(id)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Query returned document %v\n", readBack)
-		fmt.Println(readBack["key"])
-		fmt.Println(readBack["rel"])
-		fmt.Println(readBack["val"])
-	}
+	fmt.Printf("Parsed : %+v", config)
+
+	return config
+
 	
 
 }
 
 
 func main() {
-	fmt.Println("start")
-
+	// Parse argument configuration block
+	config := readConfig()
+	
 	//DB code
 	
 	fmt.Println("Intalizing DB")
@@ -355,7 +371,7 @@ func main() {
 	}
 
 	
-	ln, err := net.Listen("tcp", ":8080")
+	ln, err := net.Listen(config.Protocol, ":8080")
 	if err != nil {
 		// handle error
 	}

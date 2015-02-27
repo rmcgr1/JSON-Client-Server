@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"bufio"
+	"time"
 )
 
 type Request struct{
@@ -114,44 +115,54 @@ func getEncoder() (encoder *json.Encoder, decoder *json.Decoder){
 
 func readInput(){
 
-	conn, err := net.Dial("tcp", "localhost:8080")
-	if err != nil {
-		log.Fatal("Connection error", err)
-	}
+	scanner := bufio.NewScanner(os.Stdin)
 
-	ip_writer := bufio.NewWriter(conn)
-	ip_reader := bufio.NewReader(conn)
-	stdin_reader := bufio.NewReader(os.Stdin)
+	for scanner.Scan(){
+		text := scanner.Text()
 
-	for {
-		text, _ := stdin_reader.ReadString('\n')
-		fmt.Printf(text)
+		conn, err := net.Dial("tcp", "localhost:8080")
+		if err != nil {
+			log.Fatal("Connection error", err)
+		}
+
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+			
+		ip_writer := bufio.NewWriter(conn)
+		ip_reader := bufio.NewReader(conn)
+		
+		fmt.Println("Sending: ", text)
 			
 		ip_writer.WriteString(text)
 		ip_writer.Flush()
 		
 		line, _ := ip_reader.ReadString('\n')
-		fmt.Printf(line)
+		fmt.Println("Recieved: ", line)
+
+		conn.Close()
 	}
+
+		
 }
 
 func main() {
 	
 
 	readInput()
-
+	
 
 	//TODO id values?
 	
 	//Insert 
 	//insert("keyA", "relA", map[string]interface{}{"a":3, "b": 1111})
+	//lookup("keyC", "relA")
 	//insert("keyB", "relA", map[string]interface{}{"a":3, "b": 1111})
+	//lookup("keyB", "relA")
 	//insert("keyC", "relA", map[string]interface{}{"a":3, "b": 1111})
 	//insert("keyC", "relA", map[string]interface{}{"a":3, "b": 1111})
 	//insertOrUpdate("keyC", "relA", map[string]interface{}{"a":9999, "b": 999})
 	//insertOrUpdate("keyC", "relA", map[string]interface{}{"a":888, "b": 888})
 
-	//lookup("keyC", "relA")
+	
 	
 	//delete("keyA", "relA")
 	//delete("keyB", "relA")
@@ -162,5 +173,5 @@ func main() {
 
 	//listIDs()
 
-	shutdown()
+	//shutdown()
 }
