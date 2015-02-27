@@ -8,6 +8,8 @@ import (
 	"os"
 	"bufio"
 	"time"
+	"io/ioutil"
+	"strconv"
 )
 
 type Request struct{
@@ -22,7 +24,18 @@ type Response struct{
 	Error interface{} `json:"error"`
 }
 
-//Params is a 3 element array: [key(string), relationship(string), value(JSON object)]
+type Configuration struct{
+	ServerID string `json:"serverID"`
+	Protocol string `json:"protocol"`
+	IpAddress string `json:"ipAddress"`
+	Port int `json:"port"`
+	//PersistentStorageContainer struct {
+	//	File string `json:"file"`
+	//} `json:"persistentStorageContainer"`
+	Methods []string `json:"methods"`
+
+}
+
 
 func insert(key string, rel string, value interface{}){
 	d3 := []interface{}{key, rel, value}
@@ -113,19 +126,20 @@ func getEncoder() (encoder *json.Encoder, decoder *json.Decoder){
 	return e, d
 }
 
-func readInput(){
+func readInput(config *Configuration){
 
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for scanner.Scan(){
 		text := scanner.Text()
 
-		conn, err := net.Dial("tcp", "localhost:8080")
+		networkaddress := config.IpAddress + ":" + strconv.Itoa(config.Port)
+		conn, err := net.Dial(config.Protocol, networkaddress)
 		if err != nil {
 			log.Fatal("Connection error", err)
 		}
 
-		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 			
 		ip_writer := bufio.NewWriter(conn)
 		ip_reader := bufio.NewReader(conn)
@@ -144,14 +158,33 @@ func readInput(){
 		
 }
 
+func readConfig()(config *Configuration){
+
+	dat, err := ioutil.ReadFile(os.Args[1])
+	if err != nil {
+		fmt.Println("Error reading file")
+		panic(err)
+	}
+
+
+	b_arr := []byte(string(dat))
+
+	config = new(Configuration)
+	if err := json.Unmarshal(b_arr, &config); err != nil {
+		panic(err)
+	}
+
+	return config
+
+}
+
+
 func main() {
 	
-
-	readInput()
+	config := readConfig()
+	readInput(config)
 	
 
-	//TODO id values?
-	
 	//Insert 
 	//insert("keyA", "relA", map[string]interface{}{"a":3, "b": 1111})
 	//lookup("keyC", "relA")

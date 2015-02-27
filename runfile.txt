@@ -1,8 +1,11 @@
 {"method" : "lookup", "params": ["keyA", "relA"], "id":56}
-{"method" : "lookup", "params": ["keyA", "relA"], "id":56}
 {"method" : "insert", "params": ["keyA", "relA", {"a": 1, "b": 2}], "id":5}
+{"method" : "insert", "params": ["keyA", "relA", {"a": 1, "b": 2}], "id":5}
+{"method" : "lookup", "params": ["keyA", "relA"], "id":56}
 {"method" : "insertOrUpdate", "params": ["keyA", "relA", { "a": 1, "b":[1, 2, "bc"]}], "id":null}
+{"method" : "lookup", "params": ["keyA", "relA"], "id":56}
 {"method" : "delete", "params": ["keyA", "relA"], "id":null}
+{"method" : "lookup", "params": ["keyA", "relA"], "id":56}
 {"method" : "listKeys", "params": [], "id":671}
 {"method" : "listIDs", "params": [], "id":672}
-{"method" : "shutdown", "params": [], "id":null}
+//{"method" : "shutdown", "params": [], "id":null}
